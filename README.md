@@ -99,38 +99,30 @@ the tools durable**. The agent platform here imports nothing from Temporal.
 
 ## What's in the demo
 
-```mermaid
-flowchart LR
-  subgraph platform["Agent platform (Python, plain LangGraph)"]
-    A["intake agent"] --> B["evaluate agent"] --> C["review agent"] --> D["fulfill: one MCP tool call"]
-  end
-  D -- "MCP (Streamable HTTP)" --> M["MCP tool interface<br/>(TypeScript)<br/>fulfill_request"]
-  M -- "start Workflow<br/>(Workflow Id = request id)" --> T[("Temporal<br/>Event History,<br/>Task Queues")]
-  subgraph workers["Workers (your infrastructure)"]
-    W["Python Worker<br/>FulfillRequest Workflow<br/>records, policy, notify Activities"]
-    J["Java Worker<br/>PlaceHold, CommitHold,<br/>ReleaseHold Activities"]
-  end
-  T <-- "poll, complete" --> W
-  T <-- "poll, complete" --> J
-  subgraph heritage["Heritage services (mocked)"]
-    R["records, policy, notify<br/>(Python HTTP)"]
-    L["ledger<br/>(Java HTTP)"]
-  end
-  W --> R
-  J --> L
-  M -. "direct mode: plain HTTP,<br/>no durability" .-> R
-  M -.-> L
-```
+![What runs in the demo. T7, the dashboard, starts an agent run on T6, the agent platform. T6 makes one MCP tool call to T5, the MCP tool interface, which starts a Workflow on T1, the Temporal Service. T4, the Python tool Worker, and the Java Worker in T3 poll Temporal and call the heritage services in T2 and T3. In direct mode, T5 calls the heritage services itself.](docs/images/runtime.svg)
 
-| Component | Language | What it stands for | Directory |
-|---|---|---|---|
-| Agent platform | Python, [LangGraph](https://langchain-ai.github.io/langgraph/) | Your existing agent platform: intake, evaluate and review agents, then one tool call. No Temporal. | [`agent-platform/`](agent-platform/agent_platform/graph.py) |
-| MCP tool interface | TypeScript, [MCP SDK](https://github.com/modelcontextprotocol/typescript-sdk) | Your composite tool framework. Exposes `fulfill_request`. A runtime switch picks direct or Temporal. | [`mcp-server/`](mcp-server/) |
-| `FulfillRequest` Workflow | Python, [Temporal Python SDK](https://docs.temporal.io/develop/python) | The thick tool, made durable: six steps, an approval, a saga. | [`tools/python/durable_tools/workflow.py`](tools/python/durable_tools/workflow.py) |
-| Python Activities and Worker | Python | One Activity per heritage call. A second Worker on `heritage-policy` runs at most 3 policy calls at once. | [`tools/python/durable_tools/`](tools/python/durable_tools/) |
-| Ledger service and Java Worker | Java 21, [Temporal Java SDK](https://docs.temporal.io/develop/java) | A heritage system owned by another team, in another language. Its Activities run in a Java Worker. | [`heritage/java/`](heritage/java/) |
-| Records, policy, notify services | Python (FastAPI) | Heritage systems of record. Live RPC services with no queue; policy rejects more than 3 in flight. | [`heritage/python/`](heritage/python/heritage_py/app.py) |
-| Dashboard | Python, HTML | A control panel for the demo: beats, faults, approvals, and every layer's state. | [`dashboard/`](dashboard/demo_dashboard/) |
+Each box is one process, and its **T number is the terminal it runs in** (see
+[one terminal per process](#or-one-terminal-per-process)). Read the lines this way:
+
+- **Solid lines are the request path.** The dashboard starts an agent run, as a user or an upstream app would. The
+  agent makes one MCP tool call. The MCP server starts a Workflow, and the Workers run its steps against the heritage
+  services. The Workers connect out to Temporal; nothing connects in to them.
+- **Dotted lines are direct mode,** today's way, for contrast: the MCP server calls the services itself.
+- **Dashed lines are demo controls only:** the direct or Temporal switch, the fault switches and stats on the
+  heritage services, and the Approve and Reject buttons (a Temporal Update). In production, whatever calls your
+  agents takes the dashboard's place, plus a reviewer screen that sends the approval.
+
+The agent is the only MCP client. The dashboard never makes a tool call itself.
+
+| Terminal | Process | Language | What it stands for | Code |
+|---|---|---|---|---|
+| T1 | Temporal Service | Temporal CLI dev server, or Temporal Cloud | The durable execution layer: Event History and Task Queues. On Temporal Cloud you don't run T1. | none |
+| T2 | heritage-py | Python (FastAPI) | Heritage systems of record: records, policy, notify. Live RPC services with no queue; policy rejects more than 3 in flight. | [`heritage/python/`](heritage/python/heritage_py/app.py) |
+| T3 | heritage-java | Java 21, [Temporal Java SDK](https://docs.temporal.io/develop/java) | A heritage system owned by another team, in another language: the ledger API, plus the Java Worker for its Activities. | [`heritage/java/`](heritage/java/) |
+| T4 | Tool Worker | Python, [Temporal Python SDK](https://docs.temporal.io/develop/python) | The thick tool, made durable: the `FulfillRequest` Workflow and one Activity per heritage call. A second Worker on `heritage-policy` runs at most 3 policy calls at once. | [`tools/python/durable_tools/`](tools/python/durable_tools/workflow.py) |
+| T5 | MCP tool interface | TypeScript, [MCP SDK](https://github.com/modelcontextprotocol/typescript-sdk) | Your composite tool framework. Exposes `fulfill_request`. A runtime switch picks direct or Temporal. | [`mcp-server/`](mcp-server/) |
+| T6 | Agent platform | Python, [LangGraph](https://langchain-ai.github.io/langgraph/) | Your existing agent platform: intake, evaluate and review agents, then one tool call. No Temporal. | [`agent-platform/`](agent-platform/agent_platform/graph.py) |
+| T7 | Dashboard | Python, HTML | The demo driver: starts agent runs, holds the controls, and shows every layer's state. | [`dashboard/`](dashboard/demo_dashboard/) |
 
 All data is synthetic: three requests in [`datasets/cases/`](datasets/cases/) (`approve`, `refer`, `deny`).
 
@@ -156,17 +148,20 @@ Open the dashboard at <http://localhost:8095> and the Temporal Web UI at <http:/
 
 ### Or one terminal per process
 
-Use this when you want to stop a process by hand. Beat 2k stops the tool Worker.
+Use this when you want to stop a process by hand. Beat 2k stops the tool Worker. Start them in this order; the
+terminal numbers match the boxes in the [diagram](#whats-in-the-demo).
 
-| Terminal | Command | Ready when you see |
-|---|---|---|
-| 1 | `make server` | the dev server's startup banner |
-| 2 | `make heritage-py` | `heritage-py: records, policy (max 3 in flight), notify on http://localhost:9101` |
-| 3 | `make heritage-java` | `Java ledger Worker polling 'heritage-ledger'` |
-| 4 | `make tool-worker` | `Tool Worker polling 'durable-tools' and 'heritage-policy'` |
-| 5 | `make mcp-server` | `MCP tool server on http://localhost:9200/mcp` |
-| 6 | `make platform` | `agent-platform (plain LangGraph ...)` |
-| 7 | `make dashboard` | `dashboard on http://localhost:8095` |
+| Terminal | Command | Box in the diagram | Ready when you see |
+|---|---|---|---|
+| T1 | `make server` | Temporal Service (skip it on Temporal Cloud) | the dev server's startup banner |
+| T2 | `make heritage-py` | heritage-py | `heritage-py: records, policy (max 3 in flight), notify on http://localhost:9101` |
+| T3 | `make heritage-java` | heritage-java (ledger and Java Worker) | `Java ledger Worker polling 'heritage-ledger'` |
+| T4 | `make tool-worker` | Tool Worker | `Tool Worker polling 'durable-tools' and 'heritage-policy'` |
+| T5 | `make mcp-server` | MCP tool interface | `MCP tool server on http://localhost:9200/mcp` |
+| T6 | `make platform` | Agent platform | `agent-platform (plain LangGraph ...)` |
+| T7 | `make dashboard` | Dashboard | `dashboard on http://localhost:8095` |
+
+Then open the dashboard at <http://localhost:8095>.
 
 The agents use deterministic mock models by default, so no keys are needed. To use Claude, set
 `PLATFORM_MODEL_MODE=real` and `ANTHROPIC_API_KEY` in `.env` (copy [`.env.example`](.env.example)).
@@ -221,7 +216,7 @@ the whole tool call. The tool's code has no retry loop.
 have time. While the
 policy step shows `running`, stop the tool Worker:
 
-- With one terminal per process: press Ctrl-C in the tool Worker's terminal, then run `make tool-worker` again.
+- With one terminal per process: press Ctrl-C in T4 (the tool Worker), then run `make tool-worker` again.
 - With `make up`: run `make stop-tool-worker`, then `make up` (it starts only what's missing).
 
 **See:** while the Worker is down, the dashboard shows the Workflow **Running** and the tool Worker **offline**. The
