@@ -69,8 +69,9 @@ public final class Main {
             log.info("Stopped");
         }, "shutdown"));
 
-        // Wait for Temporal so the ledger API stays up even if the server starts later.
-        while (true) {
+        // On a local dev server, wait for Temporal so the ledger API stays up even if the server starts later.
+        // On Temporal Cloud the service is already up; the Worker's pollers connect and retry on their own.
+        while (!cloud) {
             try {
                 service.connect(Duration.ofSeconds(5));
                 break;

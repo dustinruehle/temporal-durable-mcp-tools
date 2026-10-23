@@ -85,9 +85,17 @@ def ledger() -> dict:
 
 
 def executions(rid: str) -> int:
-    out = subprocess.run(["temporal", "workflow", "list", "--query", f"WorkflowId='fulfill-{rid}'", "-o", "json"]
-                         + tflags(), capture_output=True, text=True, check=False).stdout
-    return len(json.loads(out or "[]"))
+    """How many Workflow executions exist for this request. Visibility (list) is eventually consistent, so a run
+    that just closed can take a few seconds to show up, especially on Temporal Cloud: retry for up to 30 s."""
+    n = 0
+    for _ in range(15):
+        out = subprocess.run(["temporal", "workflow", "list", "--query", f"WorkflowId='fulfill-{rid}'", "-o", "json"]
+                             + tflags(), capture_output=True, text=True, check=False).stdout
+        n = len(json.loads(out or "[]"))
+        if n:
+            return n
+        time.sleep(2)
+    return n
 
 
 def record(name: str, ok: bool, detail: str) -> None:
