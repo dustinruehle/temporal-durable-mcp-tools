@@ -1,13 +1,23 @@
 # Durable MCP tools: Temporal behind the tool interface
 
-Your agents already reason well. What breaks in production is the work they ask for: one tool call that has to
-touch several existing systems, in order, sometimes with a person in the middle. Today that tool either fails as a
-whole when any one system hiccups, or it's split into several thin tools and the agent becomes the orchestrator.
+Your agents already reason well. What breaks in production is the work they ask for: one tool call that touches
+several existing systems, in order, sometimes with a person in the middle. Built as one plain tool, a failure in any
+one system fails the whole call. Split into thin tools, the agent has to call them in the right order, and the
+heritage systems leak into the agent: their call order, their failures and their approvals end up in its prompt and
+its context.
 
-This repo shows a third option. The agent platform stays exactly as it is (plain LangGraph). The MCP tool interface
-stays the contract the agent sees. **Behind the tool, a [Temporal Workflow](https://docs.temporal.io/workflows)
-runs the multi-system work**, so each step retries on its own, a crash resumes where it stopped, a person can approve
-in the middle of one tool call, bursts queue instead of failing, and partial work is undone when a step fails for good.
+This repo adds a durable execution layer, [Temporal](https://docs.temporal.io/temporal), behind the MCP tool
+interface. The agent platform stays as it is (plain LangGraph) and still makes one tool call. Behind the tool, a
+[Temporal Workflow](https://docs.temporal.io/workflows) runs the work across the systems. That layer gives you:
+
+- **Reliability.** Each step retries on its own, a crash resumes at the step it was on, and when a step fails for
+  good, the work already done is undone (here, the ledger hold is released).
+- **Scale.** Workers pull work from Task Queues, so you add Workers to handle more. A burst waits in the queue instead
+  of overloading a service that has no queue of its own.
+- **One clean contract for the agent.** The agent sees one tool. How the heritage systems are called, retried, queued
+  and approved stays behind it, including a person who approves in the middle of the call.
+
+![The agent platform makes one MCP tool call. Behind the tool interface, Temporal runs the work across the heritage systems: it retries each step, resumes after a crash, queues the work, undoes partial work and waits for a person. The heritage systems keep their existing APIs.](docs/images/overview.svg)
 
 The demo runs the same business request two ways, with one switch and no change to the agent:
 
