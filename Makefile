@@ -1,6 +1,10 @@
 # One terminal per process, so you can stop any one of them on stage. Or `make up` to start everything
 # in the background (logs in logs/) and `make down` to stop what `make up` started.
 
+# Settings from .env reach every process started by make: Python, Java and TypeScript.
+-include .env
+export
+
 .PHONY: setup server heritage-py heritage-java tool-worker mcp-server platform dashboard stop-tool-worker up down status test lint
 
 setup:            ## Install Python, Node and Java dependencies

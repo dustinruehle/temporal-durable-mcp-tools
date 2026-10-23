@@ -4,6 +4,8 @@
 set -euo pipefail
 set -m  # each background job gets its own process group, so down.sh can stop the whole group
 cd "$(dirname "$0")/.."
+# Settings from .env reach every process: Python, Java and TypeScript.
+if [[ -f .env ]]; then set -a; . ./.env; set +a; fi
 mkdir -p logs .run
 
 start() {  # name, then the command

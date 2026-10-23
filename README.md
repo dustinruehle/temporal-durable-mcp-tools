@@ -161,13 +161,20 @@ Use this when you want to stop a process by hand. Beat 2k stops the tool Worker.
 
 The agents use deterministic mock models by default, so no keys are needed. To use Claude, set
 `PLATFORM_MODEL_MODE=real` and `ANTHROPIC_API_KEY` in `.env` (copy [`.env.example`](.env.example)).
-To use Temporal Cloud instead of the dev server, set `TEMPORAL_ADDRESS`, `TEMPORAL_NAMESPACE` and
-`TEMPORAL_API_KEY`.
+To use Temporal Cloud instead of the dev server, set `TEMPORAL_ADDRESS` (your region endpoint, for example
+`us-east-1.aws.api.temporal.io:7233`), `TEMPORAL_NAMESPACE` (`<namespace>.<account>`), `TEMPORAL_API_KEY` and
+`TEMPORAL_UI_URL=https://cloud.temporal.io` in `.env`. `make` and `make up` pass `.env` to every process.
 
 ### Run the tests
 
 ```bash
 make test      # Workflow tests (time-skipping test server), TypeScript build, Java tests
+```
+
+To check every beat end to end against the running stack, the same calls the dashboard buttons make:
+
+```bash
+uv run python scripts/check_beats.py      # resets the demo between checks; don't run it while you present
 ```
 
 ## Walk through the demo

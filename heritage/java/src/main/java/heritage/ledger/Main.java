@@ -1,6 +1,5 @@
 package heritage.ledger;
 
-import io.grpc.Metadata;
 import io.temporal.client.WorkflowClient;
 import io.temporal.client.WorkflowClientOptions;
 import io.temporal.serviceclient.WorkflowServiceStubs;
@@ -49,14 +48,9 @@ public final class Main {
         WorkflowServiceStubsOptions.Builder stubOptions = WorkflowServiceStubsOptions.newBuilder().setTarget(address);
         boolean cloud = !apiKey.isEmpty();
         if (cloud) {
-            Metadata.Key<String> namespaceHeader = Metadata.Key.of("temporal-namespace", Metadata.ASCII_STRING_MARSHALLER);
-            stubOptions.setEnableHttps(true)
-                    .addApiKey(() -> apiKey)
-                    .addGrpcMetadataProvider(() -> {
-                        Metadata m = new Metadata();
-                        m.put(namespaceHeader, namespace);
-                        return m;
-                    });
+            // TLS plus the API key. The SDK (1.28.1 and later) adds the temporal-namespace header itself;
+            // adding it again here makes Temporal Cloud reject every call as unauthorized.
+            stubOptions.setEnableHttps(true).addApiKey(() -> apiKey);
         }
         WorkflowServiceStubs service = WorkflowServiceStubs.newServiceStubs(stubOptions.build());
 
