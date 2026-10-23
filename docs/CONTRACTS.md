@@ -90,7 +90,7 @@ if `commit` fails non-retryably.
 - **Update** `decide_approval(input: {"approver": str, "decision": "approve"|"reject", "note": str})` returns the progress
   object. The validator rejects the call unless the Workflow is waiting for approval and `decision` is valid.
 - **Query** `progress()` returns
-  `{"request_id", "stage", "steps": {"records"|"policy"|"hold"|"approval"|"commit"|"notify": "pending"|"running"|"done"|"skipped"|"failed"|"compensated"}, "awaiting_approval": bool, "approval_deadline": iso8601|null, "hold_id": str|null, "outcome": str|null, "attempts": {"<step>": int}}`.
+  `{"request_id", "stage", "steps": {"records"|"policy"|"hold"|"approval"|"commit"|"notify": "pending"|"running"|"done"|"skipped"|"failed"|"compensated"}, "awaiting_approval": bool, "approval_deadline": iso8601|null, "hold_id": str|null, "outcome": str|null, "approved_by": str|null}`.
 - **Result**: `{"request_id", "outcome": "fulfilled"|"denied"|"rejected"|"timed_out"|"failed", "hold_id", "steps": {...}, "approved_by": str|null, "message": str}`.
 
 ## MCP tool interface (TypeScript, 9200, Streamable HTTP at `/mcp`)
@@ -106,7 +106,8 @@ Mode switch (no agent change): `GET /admin/mode` returns `{"mode": "direct"|"tem
 Default `temporal`. `GET /admin/stats` returns `{"mode", "calls", "ok", "errors", "in_flight"}`.
 
 - **temporal mode:** start `FulfillRequest` on `durable-tools` with Workflow Id `fulfill-<request_id>` and
-  conflict policy *use existing*, so a repeated call attaches to the run in progress. Await the result.
+  conflict policy *use existing*, so a repeated call attaches to the run in progress, and reuse policy *reject
+  duplicate*, so a repeated call after the run closed returns that run's result. Await the result.
 - **direct mode (today's way):** the same steps as plain HTTP calls in order, no retries. If approval is
   needed, it returns `isError: true` with "approval required: this tool must end here and a second tool call must
   finish later", leaving the hold open. Any failed call fails the whole tool call; earlier side effects stay.

@@ -165,8 +165,15 @@ class FulfillRequest:
     async def _compensate(self) -> None:
         if not self._hold_id:
             return
-        await workflow.execute_activity("ReleaseHold", {"hold_id": self._hold_id}, task_queue=TASK_QUEUE_LEDGER,
-                                        retry_policy=LEDGER_RETRY, result_type=dict, **STEP_TIMEOUTS)
+        try:
+            await workflow.execute_activity("ReleaseHold", {"hold_id": self._hold_id}, task_queue=TASK_QUEUE_LEDGER,
+                                            retry_policy=LEDGER_RETRY, result_type=dict, **STEP_TIMEOUTS)
+        except ActivityError as e:
+            # The ledger no longer knows the hold (for example, it was reset): nothing is left to release.
+            # Any other compensation failure fails the Workflow, so it shows up instead of being hidden.
+            if not (isinstance(e.cause, ApplicationError) and e.cause.type == "LedgerNotFound"):
+                raise
+            workflow.logger.warning("hold %s not found at release; nothing to compensate", self._hold_id)
         self._steps["hold"] = "compensated"
         if self._steps["commit"] == "pending":
             self._steps["commit"] = "skipped"

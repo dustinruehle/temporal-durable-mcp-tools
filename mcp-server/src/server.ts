@@ -38,7 +38,7 @@ const FULFILL_DESCRIPTION = [
 const STATUS_DESCRIPTION = [
   'Look up the current status of a fulfillment started with fulfill_request, without waiting for it to finish.',
   'Returns JSON: request_id, stage, the state of each step (records, policy, hold, approval, commit, notify),',
-  'awaiting_approval, approval_deadline, hold_id, outcome and attempts per step.',
+  'awaiting_approval, approval_deadline, hold_id, outcome and approved_by.',
   'Returns an error if no fulfillment is known for the request_id.',
 ].join(' ');
 

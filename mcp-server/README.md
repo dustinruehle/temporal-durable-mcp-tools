@@ -6,7 +6,7 @@ does not change.
 
 - `temporal` (default): the call starts the `FulfillRequest` Workflow on Task Queue `durable-tools` and waits for its
   result. A separate Python Worker runs the Workflow. A repeated call with the same `request_id` attaches to the run
-  already in progress.
+  already in progress, or, after that run closed, returns its result.
 - `direct`: the call makes plain HTTP calls to the heritage services, in order, with no retries. A failure part way
   fails the whole call and leaves earlier side effects in place.
 

@@ -155,3 +155,27 @@ async def test_validator_rejects_a_decision_when_nothing_is_pending(env):
             await handle.execute_update(FulfillRequest.decide_approval, {"approver": "x", "decision": "maybe"})
         await handle.execute_update(FulfillRequest.decide_approval, {"approver": "x", "decision": "approve"})
         assert (await handle.result())["outcome"] == "fulfilled"
+
+
+async def test_release_of_a_hold_the_ledger_no_longer_knows_still_completes(env):
+    ledger = Ledger()
+    acts = ledger.activities()
+
+    @activity.defn(name="ReleaseHold")
+    async def release_gone(req: dict) -> dict:
+        raise ApplicationError("unknown hold", type="LedgerNotFound", non_retryable=True)
+
+    acts = [a for a in acts if a.__temporal_activity_definition.name != "ReleaseHold"] + [release_gone]
+    async with Worker(env.client, task_queue=TASK_QUEUE_TOOLS, workflows=[FulfillRequest],
+                      activities=[fake_records, fake_notify]), \
+            Worker(env.client, task_queue=TASK_QUEUE_POLICY, activities=[fake_policy]), \
+            Worker(env.client, task_queue=TASK_QUEUE_LEDGER, activities=acts):
+        handle = await env.client.start_workflow(FulfillRequest.run, {"request_id": "refer", "decision": "refer", "amount": 8000},
+                                                 id="fulfill-gone", task_queue=TASK_QUEUE_TOOLS)
+        for _ in range(50):
+            if (await handle.query(FulfillRequest.progress))["awaiting_approval"]:
+                break
+            await env.sleep(0.2)
+        await handle.execute_update(FulfillRequest.decide_approval, {"approver": "x", "decision": "reject"})
+        r = await handle.result()
+        assert r["outcome"] == "rejected" and r["steps"]["hold"] == "compensated"

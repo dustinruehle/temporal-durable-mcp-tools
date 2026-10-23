@@ -1,7 +1,7 @@
 # One terminal per process, so you can stop any one of them on stage. Or `make up` to start everything
 # in the background (logs in logs/) and `make down` to stop what `make up` started.
 
-.PHONY: setup server heritage-py heritage-java tool-worker mcp-server platform dashboard up down status test lint
+.PHONY: setup server heritage-py heritage-java tool-worker mcp-server platform dashboard stop-tool-worker up down status test lint
 
 setup:            ## Install Python, Node and Java dependencies
 	uv sync --group dev
@@ -28,6 +28,9 @@ platform:         ## Agent platform: plain LangGraph (Python, 9300)
 
 dashboard:        ## Demo control panel (8095)
 	uv run python -m demo_dashboard.server
+
+stop-tool-worker: ## Stop the tool Worker that `make up` started (beat 2k). `make up` starts it again
+	kill -INT -- -$$(cat .run/tool-worker.pid) && rm -f .run/tool-worker.pid
 
 up:               ## Start everything in the background
 	./scripts/up.sh

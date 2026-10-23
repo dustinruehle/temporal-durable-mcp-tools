@@ -1,6 +1,13 @@
 // Temporal mode: each tool call starts (or attaches to) a FulfillRequest Workflow.
 // The Workflow is defined and run by a separate Worker; it is referenced by type name only.
-import { Client, Connection, WorkflowFailedError, WorkflowNotFoundError } from '@temporalio/client';
+import {
+  Client,
+  Connection,
+  WorkflowExecutionAlreadyStartedError,
+  WorkflowFailedError,
+  WorkflowNotFoundError,
+  type WorkflowHandle,
+} from '@temporalio/client';
 import { config } from './config.js';
 import type { CallContext, FulfillArgs, ToolOutcome } from './types.js';
 
@@ -49,13 +56,15 @@ export async function fulfillTemporal(args: FulfillArgs, ctx: CallContext): Prom
     return { ok: false, outcome: 'temporal_unavailable', body: `cannot reach Temporal at ${config.temporalAddress}: ${failureMessage(err)}` };
   }
 
-  let handle;
+  let handle: WorkflowHandle;
   try {
     handle = await client.workflow.start(config.workflowType, {
       taskQueue: config.taskQueue,
       workflowId,
-      // A repeated call while a run is in progress attaches to that run instead of starting another.
+      // The request id is the idempotency key. A repeated call while the run is open attaches to it
+      // (conflict policy); a repeated call after it closed gets that run's result (reuse policy, below).
       workflowIdConflictPolicy: 'USE_EXISTING',
+      workflowIdReusePolicy: 'REJECT_DUPLICATE',
       args: [
         {
           request_id: args.request_id,
@@ -67,7 +76,11 @@ export async function fulfillTemporal(args: FulfillArgs, ctx: CallContext): Prom
       ],
     });
   } catch (err) {
-    return { ok: false, outcome: 'start_failed', body: `could not start ${workflowId}: ${failureMessage(err)}` };
+    if (!(err instanceof WorkflowExecutionAlreadyStartedError)) {
+      return { ok: false, outcome: 'start_failed', body: `could not start ${workflowId}: ${failureMessage(err)}` };
+    }
+    // This request already ran to completion: answer with that run's result instead of doing the work again.
+    handle = client.workflow.getHandle(workflowId);
   }
 
   // While waiting (a human approval can take minutes), report the Workflow's stage.
