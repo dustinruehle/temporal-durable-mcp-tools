@@ -19,7 +19,7 @@ The demo runs the same business request two ways, with one switch and no change 
 | A person must approve mid-way | The tool has to end early and a second tool call must finish later. | One tool call waits for the person, holding no compute, with a deadline. |
 | 30 tool calls arrive at once | The service allows 3 in flight; the rest get 429 errors. | The Task Queue holds the extra work. The service never sees more than 3. |
 | The last step is rejected | Earlier steps stay done. Someone cleans up by hand. | A [saga](https://docs.temporal.io/design-patterns/saga-pattern) releases the hold and reports why. |
-| The agent repeats the same call | It runs again and can place a second hold. | The request id is the Workflow Id: the repeat attaches to the run, or gets its result. |
+| The agent repeats the same call | It runs again. After the first call commits, a repeat places and commits a second hold. | The request id is the Workflow Id: the repeat attaches to the run, or gets its result. |
 
 The stack is polyglot on purpose: the agents and the Workflow are **Python**, the MCP tool server is **TypeScript**,
 and one heritage system (the ledger) is **Java**, with its Activities running in a Java Worker. One Workflow
@@ -32,8 +32,8 @@ orchestrates all of it.
   the Java Worker here shows a team that runs its own Activities in its own language.
 - **The tool:** its body moves into a Workflow, and the tool starts it. Your tools are TypeScript? The Workflow can be
   TypeScript too, next to the tool; this repo uses Python for it to show the languages working together.
-- **What it adds:** a Temporal Service to run or use (self-hosted or Temporal Cloud), Workers to deploy, and one round
-  trip to the Temporal Service per step. In exchange, the retries, waits, queuing, recovery and undo above stop being
+- **What it adds:** a Temporal Service to run or use (self-hosted or Temporal Cloud), Workers to deploy, and a few calls to
+  the Temporal Service per step, which adds some latency to each step. In exchange, the retries, waits, queuing, recovery and undo above stop being
   code you write per tool.
 
 ## Contents
@@ -201,7 +201,8 @@ the whole tool call. The tool's code has no retry loop.
 
 ### Beat 2k: Kill the tool Worker mid-call
 
-**Do:** click **2k**. The policy service is slow for this one call (about 8 seconds), so you have time. While the
+**Do:** click **2k**. It resets stats first. The policy service is slow for this one call (about 8 seconds), so you
+have time. While the
 policy step shows `running`, stop the tool Worker:
 
 - With one terminal per process: press Ctrl-C in the tool Worker's terminal, then run `make tool-worker` again.
@@ -223,7 +224,9 @@ starts as soon as a Worker returns. A Worker that dies without warning is detect
 **See:** the tool call is open and the row says **Waiting for a person**, with the time left before the approval
 window closes (300 seconds by default, `APPROVAL_TIMEOUT_S`). No Worker is busy: the wait is a durable timer and a
 condition recorded in Event History. (The MCP server and the agent keep the HTTP call open; see
-[Production notes](#production-notes-and-limits).) Click **Approve** (or **Reject**).
+[Production notes](#production-notes-and-limits).) While it waits, click **Call again**: a second agent run makes the
+same tool call, attaches to the same Workflow, and the ledger still shows one hold. Then click **Approve** (or
+**Reject**). Both agent runs get the same result.
 
 **Why it matters:** one tool call, not two. The Workflow waits on a durable
 [timer and condition](https://docs.temporal.io/develop/python/workflows/timers), and the decision arrives as an
@@ -253,8 +256,8 @@ it returns no 429s.
 
 **Why it matters:** a live RPC service has no queue. Here the policy calls run on their own
 [Task Queue](https://docs.temporal.io/task-queue), and the Worker on that queue runs at most 3 at once
-(`max_concurrent_activities`). Extra work waits in the queue on the Temporal Service. Nothing is dropped. That's a
-lever you control, a queue instead of a rate limit. This is the concurrency form of the
+(`max_concurrent_activities`). Extra work waits in the queue on the Temporal Service. Nothing is dropped,
+and you set the limit in one place, on the Worker. This is the concurrency form of the
 [Downstream Rate Limiting pattern](https://docs.temporal.io/design-patterns/downstream-rate-limiting); see also the
 [guide to protecting downstream APIs](https://docs.temporal.io/guides/rate-limit-downstream-apis).
 
@@ -323,7 +326,7 @@ Each Activity turns a heritage response into a result or a typed error:
 
 | Response | Error type | What Temporal does |
 |---|---|---|
-| 503, connection error | `HeritageUnavailable`, `LedgerUnavailable` | Retry with backoff (1 s, 2 s, 4 s, then 10 s between attempts), for up to 10 minutes per step |
+| 5xx, connection error | `HeritageUnavailable`, `LedgerUnavailable` | Retry with backoff (1 s, 2 s, 4 s, 8 s, then every 10 s), for up to 10 minutes per step |
 | 429 | `HeritageBusy` | Retry with backoff |
 | 422 from the ledger | `LedgerRejected` (non-retryable) | Stop; the Workflow compensates |
 | Other 4xx | `HeritageRejected`, `LedgerNotFound`, `LedgerConflict`, `LedgerBadRequest` (non-retryable) | Stop |
@@ -398,6 +401,8 @@ With a plain tool, each of these is code you write, test and run yourself, in ev
   timeout. For waits longer than a client connection, return the Workflow Id and let the agent check status (the
   `get_fulfillment_status` tool), or let a person's decision resume the agent later. The Workflow itself can wait for
   days either way.
+- **If the Temporal Service is unreachable,** the tool returns `temporal_unavailable` and starts no work. Running
+  Workflows pause and continue when it's back.
 - **Compensation can fail too.** If `ReleaseHold` fails for a reason other than "hold not found", the Workflow
   fails and shows the error in the Web UI, so a stuck undo is visible instead of hidden.
 - **What's stored in Temporal.** Activity inputs and results are recorded in Event History. To encrypt them, use a
@@ -451,5 +456,6 @@ Ports: Temporal 7233 (Web UI 8233), heritage-py 9101, heritage-java 9103, MCP 92
 - **Tool calls stay open in Temporal mode:** the tool Worker or the Java Worker isn't polling. Check
   `logs/tool-worker.log` and `logs/heritage-java.log`, or the Workflow's pending Activities in the Web UI.
 - **Burst numbers look wrong:** the burst buttons reset stats first. For other beats, click **Reset** between beats.
-- **A Workflow failed after Reset:** Reset clears the ledger. Approve or reject open approvals before you click Reset.
+- **A tool call returns `failed` after Reset:** Reset clears the ledger, so a later commit finds no hold. The burst
+  and 2k buttons reset too. Approve or reject open approvals before you reset.
 - **Port in use:** another process holds one of the ports above. Stop it, or change the port variables.

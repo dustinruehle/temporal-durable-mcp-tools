@@ -105,7 +105,7 @@ const fault = (target, service, mode, extra={}) => api('/api/fault', {target, se
 async function clearFaults(){for(const s of ['records','policy','notify']) await fault('py',s,'clear'); for(const s of ['hold','commit','release']) await fault('java',s,'clear')}
 async function beat1(){await setMode('direct');await clearFaults();await fault('java','commit','fail_next',{count:2});await run('approve')}
 async function beat2(){await setMode('temporal');await clearFaults();await fault('java','commit','fail_next',{count:2});await run('approve')}
-async function beat2k(){await setMode('temporal');await clearFaults();await fault('py','policy','slow',{count:1,delay_ms:8000});await run('approve');toast('While policy runs (about 8 s): stop the tool Worker, then start it again')}
+async function beat2k(){await api('/api/reset',{});await setMode('temporal');await clearFaults();await fault('py','policy','slow',{count:1,delay_ms:8000});await run('approve');toast('While policy runs (about 8 s): stop the tool Worker, then start it again')}
 async function beat3(){await setMode('temporal');await clearFaults();await run('refer')}
 async function beat3d(){await setMode('direct');await clearFaults();await run('refer')}
 async function beat4(m){await api('/api/reset',{});await setMode(m);await clearFaults();await api('/api/burst',{n:30});toast('Reset, then 30 tool calls started ('+m+')')}
@@ -119,7 +119,7 @@ function result(r){
   if(t && t.status==='RUNNING' && t.progress && t.progress.awaiting_approval){
     const dl = t.progress.approval_deadline? new Date(t.progress.approval_deadline): null;
     const left = dl? Math.max(0, Math.round((dl-Date.now())/1000)) : null;
-    return `<span class="res wait">Waiting for a person</span><div class="small">no compute held${left!==null?` · auto-reject in ${left}s`:''}</div>`}
+    return `<span class="res wait">Waiting for a person</span><div class="small">no compute held${left!==null?` · deadline in ${left}s`:''}</div>`}
   if(r.status==='running') return '<span class="res wait">Tool call open</span>';
   if(r.tool_error) return `<span class="res bad">Tool call failed</span><div class="small">${esc(r.tool_error).slice(0,280)}</div>`;
   if(r.error) return `<span class="res bad">Run failed</span><div class="small">${esc(r.error).slice(0,180)}</div>`;
