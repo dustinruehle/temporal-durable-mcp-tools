@@ -51,4 +51,4 @@ test:             ## Python Workflow tests, TypeScript typecheck, Java tests
 	cd heritage/java && ./gradlew -q test
 
 lint:
-	uv run ruff check heritage/python tools agent-platform dashboard tests
+	uv run ruff check heritage/python tools agent-platform dashboard tests scripts

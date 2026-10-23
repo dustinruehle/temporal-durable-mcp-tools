@@ -86,7 +86,7 @@ def ledger() -> dict:
 
 def executions(rid: str) -> int:
     out = subprocess.run(["temporal", "workflow", "list", "--query", f"WorkflowId='fulfill-{rid}'", "-o", "json"]
-                         + tflags(), capture_output=True, text=True).stdout
+                         + tflags(), capture_output=True, text=True, check=False).stdout
     return len(json.loads(out or "[]"))
 
 
@@ -141,7 +141,7 @@ def b2k():
     down = row(rid)
     offline = (down.get("temporal") or {}).get("worker_online") is False and down["temporal"]["status"] == "RUNNING"
     t0 = time.time()
-    log = open(REPO / "logs" / "tool-worker.log", "a")
+    log = open(REPO / "logs" / "tool-worker.log", "a")  # noqa: SIM115 (the restarted Worker keeps writing to it)
     p = subprocess.Popen(["uv", "run", "python", "-m", "durable_tools.worker"], cwd=REPO, start_new_session=True,
                          stdout=log, stderr=subprocess.STDOUT)
     pidf.write_text(str(p.pid))
