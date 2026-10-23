@@ -62,17 +62,17 @@ a{color:var(--tmp)}.grid2{display:grid;grid-template-columns:2fr 1fr;gap:12px}
   </section>
 
   <section class="card">
-    <h2>Beats</h2>
+    <h2>Beats <span class="small">(each one resets the demo first)</span></h2>
     <div class="beats">
       <button class="beat direct" onclick="beat1()"><b>1 · Today's way: a flaky ledger</b><span>Direct mode. The ledger fails the commit twice. The whole tool call fails and the hold is left open.</span></button>
       <button class="beat temporal" onclick="beat2()"><b>2 · Same failure, Temporal behind the tool</b><span>The same fault. The commit step retries and the tool call succeeds. No agent change.</span></button>
       <button class="beat temporal" onclick="beat2k()"><b>2k · Kill the tool Worker mid-call</b><span>Policy is slow for one call (about 8 s). Stop the tool Worker, restart it: records doesn't run again.</span></button>
       <button class="beat temporal" onclick="beat3()"><b>3 · A person in the middle of the tool</b><span>Refer case. One tool call waits for an approval, holding no compute, with a deadline.</span></button>
       <button class="beat direct" onclick="beat3d()"><b>3d · The same approval, today's way</b><span>Direct mode can't wait: the tool ends early, asks for a second call, and leaves the hold open.</span></button>
-      <button class="beat direct" onclick="beat4('direct')"><b>4d · Burst of 30, today's way</b><span>Resets stats, then 30 tool calls at once. Policy takes 3 in flight and turns the rest away with 429s.</span></button>
-      <button class="beat temporal" onclick="beat4('temporal')"><b>4 · Burst of 30, queued by Temporal</b><span>Resets stats, then the same burst. The Task Queue holds the extra work; the service never sees more than 3.</span></button>
+      <button class="beat direct" onclick="beat4('direct')"><b>4d · Burst of 30, today's way</b><span>30 tool calls at once. The policy service takes 3 in flight and turns the rest away with 429s.</span></button>
+      <button class="beat temporal" onclick="beat4('temporal')"><b>4 · Burst of 30, queued by Temporal</b><span>The same burst. The Task Queue holds the extra work; the service never sees more than 3.</span></button>
       <button class="beat temporal" onclick="beat5()"><b>5 · The ledger rejects the commit</b><span>A business rejection, not an outage. No retry: the saga releases the hold and reports it.</span></button>
-      <button class="beat util" onclick="resetAll()"><b>Reset</b><span>Clear faults, ledger holds, stats and runs. Approve or reject open approvals first.</span></button>
+      <button class="beat util" onclick="resetAll()"><b>Reset</b><span>Clear faults, ledger holds, stats and runs, without starting a beat.</span></button>
     </div>
   </section>
 
@@ -103,13 +103,15 @@ const setMode = m => api('/api/mode',{mode:m}).then(()=>refresh());
 const run = (case_id, request_id) => api('/api/run', request_id?{case_id,request_id}:{case_id}).then(r=>{toast('Started '+r.request_id);refresh()});
 const fault = (target, service, mode, extra={}) => api('/api/fault', {target, service, mode, ...extra});
 async function clearFaults(){for(const s of ['records','policy','notify']) await fault('py',s,'clear'); for(const s of ['hold','commit','release']) await fault('java',s,'clear')}
-async function beat1(){await setMode('direct');await clearFaults();await fault('java','commit','fail_next',{count:2});await run('approve')}
-async function beat2(){await setMode('temporal');await clearFaults();await fault('java','commit','fail_next',{count:2});await run('approve')}
-async function beat2k(){await api('/api/reset',{});await setMode('temporal');await clearFaults();await fault('py','policy','slow',{count:1,delay_ms:8000});await run('approve');toast('While policy runs (about 8 s): stop the tool Worker, then start it again')}
-async function beat3(){await setMode('temporal');await clearFaults();await run('refer')}
-async function beat3d(){await setMode('direct');await clearFaults();await run('refer')}
-async function beat4(m){await api('/api/reset',{});await setMode(m);await clearFaults();await api('/api/burst',{n:30});toast('Reset, then 30 tool calls started ('+m+')')}
-async function beat5(){await setMode('temporal');await clearFaults();await fault('java','commit','reject_next',{count:1});await run('approve')}
+// Every beat starts clean: reset faults, ledger holds, stats and runs, then set it up.
+async function fresh(mode){await api('/api/reset',{});await setMode(mode);await clearFaults()}
+async function beat1(){await fresh('direct');await fault('java','commit','fail_next',{count:2});await run('approve')}
+async function beat2(){await fresh('temporal');await fault('java','commit','fail_next',{count:2});await run('approve')}
+async function beat2k(){await fresh('temporal');await fault('py','policy','slow',{count:1,delay_ms:8000});await run('approve');toast('While policy runs (about 8 s): stop the tool Worker, then start it again')}
+async function beat3(){await fresh('temporal');await run('refer')}
+async function beat3d(){await fresh('direct');await run('refer')}
+async function beat4(m){await fresh(m);await api('/api/burst',{n:30});toast('30 tool calls started ('+m+')')}
+async function beat5(){await fresh('temporal');await fault('java','commit','reject_next',{count:1});await run('approve')}
 async function resetAll(){await api('/api/reset',{});toast('Reset');refresh()}
 async function decide(rid, decision){await api('/api/approve',{request_id:rid, decision, approver:'reviewer-1'});toast(decision+' sent to '+rid);refresh()}
 const pills = (obj, order) => '<div class="pills">'+order.map(k=>`<span class="pill ${obj&&obj[k]||'pending'}" title="${k}: ${obj&&obj[k]||'pending'}">${k}</span>`).join('')+'</div>';

@@ -143,8 +143,17 @@ make setup     # Python, Node and Java dependencies
 make up        # starts a dev server if none is running, then every process in the background
 ```
 
-Open the dashboard at <http://localhost:8095> and the Temporal Web UI at <http://localhost:8233>.
-`make status` shows what answers; logs are in `logs/`. `make down` stops what `make up` started.
+Open the dashboard at <http://localhost:8095> and the Temporal Web UI at <http://localhost:8233> (on Temporal
+Cloud, <https://cloud.temporal.io>). `make status` shows what answers; logs are in `logs/`. `make down` stops what
+`make up` started.
+
+### Before you present
+
+1. Start everything (`make up`, or one terminal per process below) and run `make status`. Every process must answer.
+2. Run the beat checks once: `uv run python scripts/check_beats.py`. It takes about 2 minutes and must end with
+   `11 of 11 checks pass`. It resets the demo when it's done.
+3. Open two browser tabs: the dashboard and the Temporal Web UI (your Namespace's Workflows list).
+4. If you plan to show beat 2k, keep the tool Worker's terminal (T4) visible, or have `make stop-tool-worker` ready.
 
 ### Or one terminal per process
 
@@ -183,10 +192,22 @@ uv run python scripts/check_beats.py      # resets the demo between checks; don'
 
 ## Walk through the demo
 
-Each beat is one button on the dashboard. The button sets the tool mode, sets a fault switch on a heritage
-service, and starts an agent run. Watch three places: the **Tool calls** table (each layer's state), the
+Each beat is one button on the dashboard. The button resets the demo, sets the tool mode and a fault switch on a
+heritage service, and starts an agent run, so every beat starts clean and you can run them in any order. Watch
+three places: the **Tool calls** table (each layer's state), the
 **Heritage services** table (what the existing systems saw), and **Ledger holds** (open holds with no tool call
 running are work left behind).
+
+| Beat | What it shows | About |
+|---|---|---|
+| [1](#beat-1-todays-way-a-flaky-ledger) | Today's way: one flaky system fails the whole tool call and leaves a hold behind | 1 min |
+| [2](#beat-2-the-same-failure-temporal-behind-the-tool) | The same failure with Temporal behind the tool: one step retries, the call succeeds | 1.5 min |
+| [2k](#beat-2k-kill-the-tool-worker-mid-call) | The tool Worker dies mid-call and the call finishes after a restart | 2 min |
+| [3](#beat-3-a-person-in-the-middle-of-the-tool) | A person approves in the middle of one tool call | 2 min |
+| [3d](#beat-3d-the-same-approval-todays-way) | The same approval today: the tool has to end early | 1 min |
+| [4](#beat-4-a-burst-of-30-tool-calls) | 30 calls at once: 429s today, a queue with Temporal | 2.5 min |
+| [5](#beat-5-the-ledger-rejects-the-commit) | A business rejection: no retry, and the saga releases the hold | 1.5 min |
+| [Web UI](#the-web-ui) | The history of one tool call | 1.5 min |
 
 ### Beat 1: Today's way, a flaky ledger
 
@@ -466,7 +487,8 @@ Ports: Temporal 7233 (Web UI 8233), heritage-py 9101, heritage-java 9103, MCP 92
 - **A beat button shows an error toast:** run `make status`. Every process must answer.
 - **Tool calls stay open in Temporal mode:** the tool Worker or the Java Worker isn't polling. Check
   `logs/tool-worker.log` and `logs/heritage-java.log`, or the Workflow's pending Activities in the Web UI.
-- **Burst numbers look wrong:** the burst buttons reset stats first. For other beats, click **Reset** between beats.
-- **A tool call returns `failed` after Reset:** Reset clears the ledger, so a later commit finds no hold. The burst
-  and 2k buttons reset too. Approve or reject open approvals before you reset.
+- **Numbers from the last beat are still on screen:** every beat button resets the demo first. **Reset** clears it
+  without starting a beat.
+- **A tool call returns `failed` after a reset:** a reset clears the ledger, so a commit that was still waiting finds
+  no hold. Every beat button resets, so finish an open approval before you start the next beat.
 - **Port in use:** another process holds one of the ports above. Stop it, or change the port variables.

@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+cd "$(dirname "$0")/.."
+# Same settings as `make up`: check the Temporal target that .env points at.
+if [[ -f .env ]]; then set -a; . ./.env; set +a; fi
 check() { if curl -fsS "$2" > /dev/null 2>&1; then echo "  up    $1  $2"; else echo "  DOWN  $1  $2"; fi; }
 addr=${TEMPORAL_ADDRESS:-localhost:7233}
 if nc -z "${addr%:*}" "${addr##*:}" 2>/dev/null; then echo "  up    temporal  $addr"; else echo "  DOWN  temporal  $addr"; fi
