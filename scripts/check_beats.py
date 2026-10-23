@@ -21,6 +21,11 @@ import urllib.request
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
+try:  # the same settings as `make up`: .env decides local dev server or Temporal Cloud
+    from dotenv import load_dotenv
+    load_dotenv(REPO / ".env")
+except ImportError:
+    pass
 DASH = os.getenv("DASHBOARD_URL", "http://localhost:8095")
 results: list[tuple[str, bool]] = []
 
