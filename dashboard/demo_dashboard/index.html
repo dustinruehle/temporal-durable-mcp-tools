@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Durable MCP Tools</title>
+<style>
+:root{--bg:#f6f5f9;--card:#fff;--ink:#1b1724;--mut:#665f73;--line:#e3dfea;--plat:#1f8a4c;--plat-t:#e5f5ec;--mcp:#c2410c;--mcp-t:#fdeee4;
+--tmp:#5b2bc4;--tmp-t:#efe9fb;--her:#b42335;--her-t:#fbe9ec;--ok:#1f8a4c;--warn:#a86a00;--warn-t:#fbf1dc;--bad:#b42335;--bad-t:#fbe9ec}
+@media (prefers-color-scheme: dark){:root{--bg:#14111a;--card:#1d1926;--ink:#ece8f3;--mut:#a9a1b8;--line:#332c40;--plat:#5cc98a;--plat-t:#173326;
+--mcp:#f0905c;--mcp-t:#3a2316;--tmp:#a98bf5;--tmp-t:#2a2142;--her:#f07a8a;--her-t:#3a1a22;--ok:#5cc98a;--warn:#e9b23a;--warn-t:#33290f;--bad:#f07a8a;--bad-t:#3a1a22}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif}
+header{padding:14px 20px 6px;display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between}
+h1{font-size:20px;margin:0}header p{margin:2px 0 0;color:var(--mut)}
+.mode{display:flex;gap:6px;align-items:center}.mode b{font-size:12px;color:var(--mut);text-transform:uppercase;letter-spacing:.06em}
+.seg button{border:1px solid var(--line);background:var(--card);color:var(--ink);padding:7px 12px;cursor:pointer;font-weight:600}
+.seg button:first-child{border-radius:8px 0 0 8px}.seg button:last-child{border-radius:0 8px 8px 0}
+.seg button.on.direct{background:var(--bad-t);border-color:var(--bad);color:var(--bad)}.seg button.on.temporal{background:var(--tmp-t);border-color:var(--tmp);color:var(--tmp)}
+main{padding:6px 20px 30px;display:grid;gap:12px}
+.lanes{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.lane{border-radius:12px;padding:10px 12px;border:1px solid var(--line);background:var(--card);position:relative}
+.lane h3{margin:0 0 2px;font-size:13px;text-transform:uppercase;letter-spacing:.06em}.lane .sub{color:var(--mut);font-size:12px}
+.lane .big{font-size:13px;margin-top:6px}.lane.plat{border-top:4px solid var(--plat)}.lane.mcp{border-top:4px solid var(--mcp)}
+.lane.tmp{border-top:4px solid var(--tmp)}.lane.her{border-top:4px solid var(--her)}
+.lane.off{opacity:.55}.lane .dot{position:absolute;right:10px;top:10px;width:9px;height:9px;border-radius:50%;background:var(--ok)}.lane.off .dot{background:var(--bad)}
+.lane.tmp.dim{background:var(--card);opacity:.5}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.card h2{font-size:14px;margin:0 0 8px}
+.beats{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:8px}
+.beat{border:1px solid var(--line);border-radius:10px;padding:8px 10px;background:var(--bg);cursor:pointer;text-align:left;color:var(--ink);font:inherit}
+.beat:hover{border-color:var(--tmp)}.beat b{display:block;font-size:13px}.beat span{color:var(--mut);font-size:12px}
+.beat.direct{border-left:4px solid var(--bad)}.beat.temporal{border-left:4px solid var(--tmp)}.beat.util{border-left:4px solid var(--mut)}
+table{width:100%;border-collapse:collapse;font-size:13px}th,td{padding:6px 6px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+th{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--mut);font-weight:600}
+.pills{display:flex;flex-wrap:wrap;gap:3px}.pill{font-size:11px;padding:1px 7px;border-radius:10px;border:1px solid var(--line);color:var(--mut);white-space:nowrap}
+.pill.running{border-color:var(--warn);color:var(--warn);background:var(--warn-t)}.pill.done{border-color:var(--ok);color:var(--ok)}
+.pill.failed{border-color:var(--bad);color:var(--bad);background:var(--bad-t)}.pill.compensated{border-color:var(--warn);color:var(--warn)}
+.pill.skipped{opacity:.5}.tag{font-size:11px;font-weight:700;padding:1px 7px;border-radius:6px}
+.tag.direct{background:var(--bad-t);color:var(--bad)}.tag.temporal{background:var(--tmp-t);color:var(--tmp)}
+.res.ok{color:var(--ok);font-weight:600}.res.bad{color:var(--bad);font-weight:600}.res.wait{color:var(--warn);font-weight:600}
+.small{font-size:12px;color:var(--mut)}button.act{font:inherit;font-size:12px;padding:3px 8px;border-radius:6px;border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer;margin:2px 2px 0 0}
+button.act.ok{border-color:var(--ok);color:var(--ok)}button.act.bad{border-color:var(--bad);color:var(--bad)}
+a{color:var(--tmp)}.grid2{display:grid;grid-template-columns:2fr 1fr;gap:12px}
+.num{font-variant-numeric:tabular-nums}.hot{color:var(--bad);font-weight:700}.warnbox{background:var(--warn-t);border-radius:8px;padding:6px 10px;margin-top:6px;font-size:12px}
+.burst{display:flex;gap:16px;flex-wrap:wrap;font-size:13px}.burst div b{font-size:20px;display:block}
+#toast{position:fixed;bottom:16px;right:16px;background:var(--ink);color:var(--bg);padding:8px 12px;border-radius:8px;font-size:13px;opacity:0;transition:opacity .2s;max-width:420px}
+@media (max-width:900px){.lanes{grid-template-columns:repeat(2,minmax(0,1fr))}.grid2{grid-template-columns:minmax(0,1fr)}}
+@media (max-width:560px){.lanes{grid-template-columns:minmax(0,1fr)}main,header{padding-left:16px;padding-right:16px}}
+</style>
+</head>
+<body>
+<header>
+  <div><h1>Durable MCP tools</h1><p>A plain LangGraph agent platform calls one composite tool. Behind the tool interface, Temporal orchestrates heritage services in Python and Java.</p></div>
+  <div class="mode"><b>Tool interface</b><div class="seg"><button id="m-direct" class="direct" onclick="setMode('direct')">Direct (today)</button><button id="m-temporal" class="temporal" onclick="setMode('temporal')">Temporal</button></div></div>
+</header>
+<main>
+  <section class="lanes">
+    <div class="lane plat" id="l-plat"><span class="dot"></span><h3>Agent platform</h3><div class="sub">LangGraph, Python · no Temporal</div><div class="big">intake, evaluate, review agents, then one MCP tool call</div></div>
+    <div class="lane mcp" id="l-mcp"><span class="dot"></span><h3>Tool interface</h3><div class="sub">MCP server, TypeScript</div><div class="big" id="mcp-stats">fulfill_request</div></div>
+    <div class="lane tmp" id="l-tmp"><span class="dot"></span><h3>Durable execution</h3><div class="sub">Temporal · Workflow FulfillRequest</div><div class="big">retries, waits for people, queues, undo</div></div>
+    <div class="lane her" id="l-her"><span class="dot"></span><h3>Heritage services</h3><div class="sub">records, policy, notify (Python) · ledger (Java)</div><div class="big" id="her-stats"></div></div>
+  </section>
+
+  <section class="card">
+    <h2>Beats</h2>
+    <div class="beats">
+      <button class="beat direct" onclick="beat1()"><b>1 · Today's way: a flaky ledger</b><span>Direct mode. The ledger fails the commit twice. The whole tool call fails and the hold is left open.</span></button>
+      <button class="beat temporal" onclick="beat2()"><b>2 · Same failure, Temporal behind the tool</b><span>The same fault. The commit step retries and the tool call succeeds. No agent change.</span></button>
+      <button class="beat temporal" onclick="beat2k()"><b>2k · Kill the tool Worker mid-call</b><span>Records is slow for one call. Ctrl-C the tool Worker, restart it, and the call continues.</span></button>
+      <button class="beat temporal" onclick="beat3()"><b>3 · A person in the middle of the tool</b><span>Refer case. One tool call waits for an approval, holding no compute, with a deadline.</span></button>
+      <button class="beat direct" onclick="beat3d()"><b>3d · The same approval, today's way</b><span>Direct mode can't wait: the tool ends early, asks for a second call, and leaves the hold open.</span></button>
+      <button class="beat direct" onclick="beat4('direct')"><b>4d · Burst of 30, today's way</b><span>30 tool calls at once. The policy service takes 3 in flight and turns the rest away with 429s.</span></button>
+      <button class="beat temporal" onclick="beat4('temporal')"><b>4 · Burst of 30, queued by Temporal</b><span>The same burst. The Task Queue holds the extra work; the service never sees more than 3.</span></button>
+      <button class="beat temporal" onclick="beat5()"><b>5 · The ledger rejects the commit</b><span>A business rejection, not an outage. No retry: the saga releases the hold and reports it.</span></button>
+      <button class="beat util" onclick="resetAll()"><b>Reset</b><span>Clear faults, ledger holds, stats and runs. Keeps the current mode.</span></button>
+    </div>
+  </section>
+
+  <section class="grid2">
+    <div class="card">
+      <h2>Tool calls</h2>
+      <div style="overflow-x:auto"><table><thead><tr><th>Request</th><th>Agent platform</th><th>Tool call result</th><th>Temporal steps</th><th></th></tr></thead><tbody id="runs"></tbody></table></div>
+      <div id="burst"></div>
+    </div>
+    <div class="card">
+      <h2>Heritage services</h2>
+      <div style="overflow-x:auto"><table><thead><tr><th>Service</th><th class="num">Calls</th><th class="num">Errors</th><th class="num">429</th><th class="num">In flight</th><th class="num">Max</th></tr></thead><tbody id="her"></tbody></table></div>
+      <div id="ledger" class="warnbox"></div>
+      <p class="small">The policy service allows 3 calls in flight. A live RPC service has no queue: more than that gets a 429.</p>
+    </div>
+  </section>
+</main>
+<div id="toast"></div>
+<script>
+const $ = id => document.getElementById(id);
+let MODE = null;
+function toast(t){const e=$('toast');e.textContent=t;e.style.opacity=1;clearTimeout(e._t);e._t=setTimeout(()=>e.style.opacity=0,3500)}
+async function api(path, body){
+  const r = await fetch(path, {method: body===undefined?'GET':'POST', headers:{'Content-Type':'application/json'}, body: body===undefined?undefined:JSON.stringify(body)});
+  const j = await r.json().catch(()=>({})); if(!r.ok){toast((j.detail||r.statusText)+''); throw new Error(j.detail)} return j;
+}
+const setMode = m => api('/api/mode',{mode:m}).then(()=>refresh());
+const run = (case_id, request_id) => api('/api/run', request_id?{case_id,request_id}:{case_id}).then(r=>{toast('Started '+r.request_id);refresh()});
+const fault = (target, service, mode, extra={}) => api('/api/fault', {target, service, mode, ...extra});
+async function clearFaults(){for(const s of ['records','policy','notify']) await fault('py',s,'clear'); for(const s of ['hold','commit','release']) await fault('java',s,'clear')}
+async function beat1(){await setMode('direct');await clearFaults();await fault('java','commit','fail_next',{count:2});await run('approve')}
+async function beat2(){await setMode('temporal');await clearFaults();await fault('java','commit','fail_next',{count:2});await run('approve')}
+async function beat2k(){await setMode('temporal');await clearFaults();await fault('py','records','slow',{count:1,delay_ms:6000});await run('approve');toast('Now Ctrl-C the tool Worker, then restart it')}
+async function beat3(){await setMode('temporal');await clearFaults();await run('refer')}
+async function beat3d(){await setMode('direct');await clearFaults();await run('refer')}
+async function beat4(m){await setMode(m);await clearFaults();await api('/api/burst',{n:30});toast('30 tool calls started ('+m+')')}
+async function beat5(){await setMode('temporal');await clearFaults();await fault('java','commit','reject_next',{count:1});await run('approve')}
+async function resetAll(){await api('/api/reset',{});toast('Reset');refresh()}
+async function decide(rid, decision){await api('/api/approve',{request_id:rid, decision, approver:'reviewer-1'});toast(decision+' sent to '+rid);refresh()}
+const pills = (obj, order) => '<div class="pills">'+order.map(k=>`<span class="pill ${obj&&obj[k]||'pending'}" title="${k}: ${obj&&obj[k]||'pending'}">${k}</span>`).join('')+'</div>';
+function esc(s){return String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+function result(r){
+  const t=r.temporal, tr=r.tool_result;
+  if(t && t.status==='RUNNING' && t.progress && t.progress.awaiting_approval){
+    const dl = t.progress.approval_deadline? new Date(t.progress.approval_deadline): null;
+    const left = dl? Math.max(0, Math.round((dl-Date.now())/1000)) : null;
+    return `<span class="res wait">Waiting for a person</span><div class="small">no compute held${left!==null?` · auto-reject in ${left}s`:''}</div>`}
+  if(r.status==='running') return '<span class="res wait">Tool call open</span>';
+  if(r.tool_error) return `<span class="res bad">Tool call failed</span><div class="small">${esc(r.tool_error).slice(0,280)}</div>`;
+  if(r.error) return `<span class="res bad">Run failed</span><div class="small">${esc(r.error).slice(0,180)}</div>`;
+  if(tr){const ok=tr.outcome==='fulfilled'||tr.outcome==='denied'; return `<span class="res ${ok?'ok':'bad'}">${esc(tr.outcome||'done')}</span><div class="small">${esc(tr.message||'')}</div>`}
+  return '';
+}
+function temporalCell(r){
+  const t=r.temporal;
+  if(r.mode==='direct') return '<span class="small">not used (direct mode)</span>';
+  if(!t) return '<span class="small">no Workflow yet</span>';
+  let h = pills(t.progress&&t.progress.steps, ['records','policy','hold','approval','commit','notify']);
+  h += `<div class="small">${esc(t.status)}${t.worker_online===false?' · <span class="hot">tool Worker offline: state is safe in Temporal</span>':''}</div>`;
+  for(const p of t.pending){ if(p.attempt>1||p.last_failure) h+=`<div class="small">${esc(p.activity)} attempt ${p.attempt}${p.last_failure?': '+esc(p.last_failure).slice(0,80):''}</div>` }
+  return h;
+}
+function render(s){
+  MODE=s.mode; $('m-direct').classList.toggle('on',MODE==='direct'); $('m-temporal').classList.toggle('on',MODE==='temporal');
+  $('l-plat').classList.toggle('off',!s.online.platform); $('l-mcp').classList.toggle('off',!s.online.mcp);
+  $('l-her').classList.toggle('off',!(s.online.heritage_py&&s.online.heritage_java)); $('l-tmp').classList.toggle('dim',MODE==='direct');
+  const m=s.mcp||{}; $('mcp-stats').innerHTML=`mode <b>${esc(MODE||'?')}</b> · calls ${m.calls??'-'} · errors ${m.errors??'-'} · open ${m.in_flight??'-'}`;
+  const py=s.heritage_py||{}, j=s.heritage_java||{};
+  const rows=[['records (Python)',py.records],['policy (Python)',py.policy],['notify (Python)',py.notify],['ledger hold (Java)',j.hold],['ledger commit (Java)',j.commit],['ledger release (Java)',j.release]];
+  $('her').innerHTML=rows.map(([n,x])=>{x=x||{};return `<tr><td>${n}</td><td class="num">${x.calls??'-'}</td><td class="num ${x.errors?'hot':''}">${x.errors??'-'}</td><td class="num ${x.rejected_429?'hot':''}">${x.rejected_429??'-'}</td><td class="num">${x.in_flight??'-'}</td><td class="num">${x.max_in_flight??'-'}</td></tr>`}).join('');
+  // A hold is expected while its tool call is still open (for example, waiting for a person).
+  // Holds beyond the number of open tool calls belong to calls that already ended: work left behind.
+  const openCalls = s.runs.filter(r=>r.status==='running').length + (s.burst?s.burst.running:0);
+  const left = Math.max(0, (j.open_holds||0) - openCalls);
+  $('ledger').innerHTML=s.online.heritage_java?`Ledger holds: <b>${j.open_holds} open</b> · ${j.committed} committed · ${j.released} released`
+    + (left?` · <b class="hot">${left} left behind by tool calls that already ended</b>`:'') :'Ledger offline';
+  $('her-stats').innerHTML=`policy in flight ${py.policy?py.policy.in_flight:'-'} / 3 · open holds <b>${j.open_holds??'-'}</b>`;
+  $('runs').innerHTML=s.runs.map(r=>{
+    const t=r.temporal, waiting=t&&t.status==='RUNNING'&&t.progress&&t.progress.awaiting_approval;
+    return `<tr><td><b>${esc(r.request_id)}</b><div><span class="tag ${r.mode||''}">${esc(r.mode||'')}</span></div></td>
+      <td>${pills(r.nodes,['intake','evaluate','review','fulfill'])}<div class="small">${r.decision?'decision: '+esc(r.decision):''}</div></td>
+      <td>${result(r)}</td><td>${temporalCell(r)}</td>
+      <td>${waiting?`<button class="act ok" onclick="decide('${r.request_id}','approve')">Approve</button><button class="act bad" onclick="decide('${r.request_id}','reject')">Reject</button>`:''}
+      ${t&&t.ui?`<div><a href="${t.ui}" target="_blank" rel="noopener">Web UI</a></div>`:''}
+      ${r.status==='running'?`<button class="act" title="Call the tool again with the same request id" onclick="run('${r.case_id}','${r.request_id}')">Call again</button>`:''}</td></tr>`}).join('')||'<tr><td colspan="5" class="small">No tool calls yet. Pick a beat.</td></tr>';
+  const b=s.burst;
+  $('burst').innerHTML=b?`<h2 style="margin-top:12px">Burst ${esc(b.batch)} <span class="tag ${b.mode}">${esc(b.mode)}</span></h2><div class="burst"><div><b>${b.total}</b>tool calls</div><div><b class="res ok">${b.fulfilled}</b>fulfilled</div><div><b class="${b.failed?'hot':''}">${b.failed}</b>failed</div><div><b>${b.running}</b>still open</div></div>${b.errors.length?'<div class="small">'+b.errors.map(esc).join('<br>')+'</div>':''}`:'';
+}
+async function refresh(){try{render(await api('/api/state'))}catch(e){}}
+setInterval(refresh,1000);refresh();
+</script>
+</body>
+</html>

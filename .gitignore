@@ -1,0 +1,13 @@
+.env
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+logs/
+.run/
+node_modules/
+mcp-server/dist/
+heritage/java/build/
+heritage/java/.gradle/
+.DS_Store

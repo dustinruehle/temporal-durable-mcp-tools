@@ -1,0 +1,20 @@
+{
+  "request_id": "refer",
+  "requester": "Requester B",
+  "amount": 8000,
+  "summary": "Relocation stipend above the auto-approval limit. One criterion needs a person to check.",
+  "criteria": [
+    "within_budget",
+    "manager_on_file",
+    "no_open_flags"
+  ],
+  "criteria_met": [
+    "manager_on_file",
+    "no_open_flags"
+  ],
+  "documents": [
+    "request form",
+    "relocation estimate"
+  ],
+  "expected": "refer"
+}

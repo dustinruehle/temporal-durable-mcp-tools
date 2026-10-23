@@ -1,0 +1,18 @@
+{
+  "request_id": "deny",
+  "requester": "Requester C",
+  "amount": 300,
+  "summary": "Duplicate of a request that was already paid.",
+  "criteria": [
+    "within_budget",
+    "manager_on_file",
+    "no_open_flags"
+  ],
+  "criteria_met": [
+    "within_budget"
+  ],
+  "documents": [
+    "request form"
+  ],
+  "expected": "deny"
+}

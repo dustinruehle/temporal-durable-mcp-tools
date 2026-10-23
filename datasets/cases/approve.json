@@ -1,0 +1,22 @@
+{
+  "request_id": "approve",
+  "requester": "Requester A",
+  "amount": 1200,
+  "summary": "Equipment request within policy. Every criterion is met.",
+  "criteria": [
+    "within_budget",
+    "manager_on_file",
+    "no_open_flags"
+  ],
+  "criteria_met": [
+    "within_budget",
+    "manager_on_file",
+    "no_open_flags"
+  ],
+  "documents": [
+    "request form",
+    "quote",
+    "manager record"
+  ],
+  "expected": "approve"
+}
