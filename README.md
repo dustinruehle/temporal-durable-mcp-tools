@@ -3,7 +3,6 @@
 Your agents already reason well. What breaks in production is the work they ask for: one tool call that has to
 touch several existing systems, in order, sometimes with a person in the middle. Today that tool either fails as a
 whole when any one system hiccups, or it's split into several thin tools and the agent becomes the orchestrator.
-Neither is durable.
 
 This repo shows a third option. The agent platform stays exactly as it is (plain LangGraph). The MCP tool interface
 stays the contract the agent sees. **Behind the tool, a [Temporal Workflow](https://docs.temporal.io/workflows)
